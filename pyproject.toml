@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ms_graphrag_neo4j"
+version = "0.1.0"
+description = "A simple Python package"
+readme = "README.md"
+authors = [
+    {name = "Tomaz Bratanic", email = "tomaz.bratanic@neo4j.com"},
+]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "neo4j>=5.28.1",
+    "openai>=1.69.0"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/my_package"
+"Bug Tracker" = "https://github.com/yourusername/my_package/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ms_graphrag_neo4j"]
