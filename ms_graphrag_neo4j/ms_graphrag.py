@@ -7,7 +7,7 @@ from langchain_experimental.graph_transformers import LLMGraphTransformer
 from langchain_community.vectorstores import Neo4jVector
 from langchain_community.graphs import Neo4jGraph
 
-from ms_graphrag_neo4j.providers.gemini import GeminiEmbeddings
+from ms_graphrag_neo4j.providers.gemini import GeminiEmbeddings, GeminiLLM
 from tqdm.asyncio import tqdm, tqdm_asyncio
 from graphdatascience import GraphDataScience
 
@@ -44,7 +44,7 @@ class MsGraphRAG:
         driver: Driver,
         model: str = "gpt-4o",
         database: str = "neo4j",
-        max_workers: int = 10,
+        max_workers: int = 5,
         create_constraints: bool = True,
     ) -> None:
         """
@@ -69,6 +69,8 @@ class MsGraphRAG:
             azure_endpoint="https://gpt5-api-resource.cognitiveservices.azure.com/",
             api_key=os.environ.get("AZURE_API_KEY"),
         )
+        self.gemini_llm = GeminiLLM(model_name="gemini-2.5-pro")
+
         # Test for APOC
         try:
             self.query("CALL apoc.help('test')")
@@ -132,7 +134,7 @@ class MsGraphRAG:
             - Extracted entities and relationships are stored directly in Neo4j
             - Each text document is processed independently by the LLM
         """
-
+        print(input_texts)
         async def process_text(input_text):
             prompt = GRAPH_EXTRACTION_PROMPT.format(
                 entity_types=allowed_entities,
@@ -249,7 +251,7 @@ class MsGraphRAG:
                     ),
                 },
             ]
-            summary = await self.achat(messages, model=self.model)
+            summary = await self.achat(messages,model="gpt-5-mini")
             return {
                 "source": rel["source"],
                 "target": rel["target"],
@@ -296,7 +298,7 @@ class MsGraphRAG:
                 },
             ]
         
-        summary = await self.achat(messages, model=self.model)
+        summary = await self.achat(messages,model="gpt-5-mini")
 
         return summary.content
     
@@ -482,7 +484,7 @@ class MsGraphRAG:
                     "content": COMMUNITY_REPORT_PROMPT.format(input_text=input_text),
                 },
             ]
-            summary = await self.achat(messages, model=self.model)
+            summary = await self.achat(messages,model="gpt-5-mini")
             
             summary_json = extract_json(summary.content)
             
@@ -536,7 +538,7 @@ class MsGraphRAG:
         return f"Generated {len(community_summaries)} community summaries"
 
 
-    async def run(self, document, allowed_entities):
+    async def load_data(self, document, allowed_entities):
         """
         Process a single document, create a graph structure, and run the full GraphRAG pipeline.
         The document metadata should include a 'title' (str) and 'authors' (list of str).
@@ -548,7 +550,7 @@ class MsGraphRAG:
         doc_metadata = document.get("metadata", {})
         doc_title = doc_metadata.get("title", "Untitled Document")
         doc_authors = doc_metadata.get("authors", [])
-        doc_content = document.get("chunks", [])
+        doc_content = document.get("sections", [])
         
         # Step 1: Summarize and embed the document summary
         print(f"Summarizing document: {doc_title}")
@@ -583,13 +585,13 @@ class MsGraphRAG:
         all_chunks_data = [] # This list will be sent to the database
 
         for chunk in doc_content:
-            chunk_id = get_hash(chunk.text)
-            all_chunks_text.append(chunk.text)
+            chunk_id = get_hash(chunk['text'])
+            all_chunks_text.append(chunk["text"])
             all_chunk_ids.append(chunk_id)
             all_chunks_data.append({
                 "chunk_id": chunk_id,
-                "text": chunk.text,
-                "section": chunk.metadata.get("section", "unknown"),
+                "text": chunk["text"],
+                "section": chunk["title"],
             })
 
         # Step 3: Create all chunk nodes and link them to the document in ONE batch query
@@ -642,7 +644,7 @@ class MsGraphRAG:
         # Step 9: Extract relationships between documents
         print("Extracting relationships between documents...")
         await self.entity_relation_extraction_from_summaries()
-        
+
         print("GraphRAG pipeline completed successfully.")
 
     async def search_chunks(self, query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:
@@ -663,7 +665,7 @@ class MsGraphRAG:
             """
             CALL db.index.vector.queryNodes('chunk_text_embeddings', $top_k, $embedding)
             YIELD node AS chunk, score
-            RETURN chunk.text AS text, score
+            RETURN chunk["text"] AS text, score
             """,
             params={'top_k': top_k, 'embedding': query_embedding}
         )
@@ -796,6 +798,90 @@ class MsGraphRAG:
             **config,
         )
         return response.choices[0].message
+
+
+    async def run(self, prompt: str, top_k: int = 5, top_m: int = 2) -> str:
+        """
+        Executes the full GraphRAG pipeline to answer a prompt.
+        
+        Args:
+            prompt (str): The user's question or prompt.
+            top_k (int): The number of initial chunks to retrieve.
+            top_m (int): The number of top chunks from which to load full document context.
+
+        Returns:
+            str: The LLM-generated answer based on the graph context.
+        """
+        print(f"\n--- Running GraphRAG pipeline for prompt: '{prompt}' ---")
+
+        # 1. Retrieve relevant chunks
+        print(f"Step 1: Searching for top {top_k} relevant chunks...")
+        chunks = await self.search_chunks(prompt, top_k=top_k)
+        if not chunks:
+            return "I couldn't find any relevant information in the documents to answer your question."
+        
+        chunk_ids = [c['id'] for c in chunks]
+        context_str = "CONTEXT:\n\n"
+
+        # 2. Traverse graph from chunks
+        print("Step 2: Traversing graph from chunks for local context (2 hops)...")
+        graph_context = self.query(
+            """
+            UNWIND $chunk_ids AS c_id
+            MATCH (c:__Chunk__ {id: c_id})
+            CALL apoc.path.subgraphNodes(c, {maxLevel: 2}) YIELD node
+            WITH c_id, node
+            // Exclude the original chunk itself from this context to avoid redundancy
+            WHERE NOT node:__Chunk__ OR node.id <> c_id 
+            RETURN node.name AS name, node.summary AS summary, labels(node) AS labels
+            """, params={"chunk_ids": chunk_ids}
+        )
+        context_str += "Graph Context:\n"
+        for item in graph_context:
+            context_str += f"- Node: {item['name']}, Labels: {item['labels']}, Summary: {item['summary']}\n"
+        
+        # 3. Get document summaries for top_m chunks
+        print(f"Step 3: Retrieving document summaries for top {top_m} chunks...")
+        seen_doc_titles = set()
+        doc_summaries_context = self.query(
+            """
+            UNWIND $chunk_ids AS c_id
+            MATCH (:__Chunk__ {id: c_id})-[:FROM_DOCUMENT]->(d:Document)
+            RETURN d.title AS title, d.summary AS summary
+            """, params={"chunk_ids": chunk_ids[:top_m]}
+        )
+        context_str += "\nPrimary Document Summaries:\n"
+        for doc in doc_summaries_context:
+            context_str += f"- Document '{doc['title']}': {doc['summary']}\n"
+            seen_doc_titles.add(doc['title'])
+
+        # 4. Global search for other relevant documents
+        print("Step 4: Performing global search for additional relevant documents...")
+        additional_docs = await self.search_document_summaries(prompt, top_k=top_k)
+        
+        added_docs_count = 0
+        context_str += "\nAdditional Relevant Document Summaries:\n"
+        for doc in additional_docs:
+            if doc['title'] not in seen_doc_titles:
+                context_str += f"- Document '{doc['title']}': {doc['summary']}\n"
+                added_docs_count += 1
+        if added_docs_count == 0:
+            context_str += "- No additional documents found.\n"
+
+        # 5. Provide context to LLM and get an answer
+        print("Step 5: Synthesizing context and generating final answer with Gemini...")
+        final_prompt = (
+            f"{context_str}\n\nBased *only* on the context provided above, "
+            f"please answer the following question. Do not use any prior knowledge. "
+            f"If the context does not contain the answer, say so.\n\n"
+            f"Question: {prompt}"
+        )
+        
+        response = await self.achat([{"role": "user", "content": final_prompt}])
+        
+        print("--- GraphRAG pipeline complete. ---")
+        return response.content
+    
 
     def close(self) -> None:
         """

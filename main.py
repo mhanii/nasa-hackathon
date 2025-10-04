@@ -4,7 +4,7 @@ from ms_graphrag_neo4j.ms_graphrag import MsGraphRAG
 from ms_graphrag_neo4j.text_chunker.section_splitter import SectionSplitter
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
-
+from ms_graphrag_neo4j.article_downloader.handler import get_sample
 load_dotenv()
 
 driver = GraphDatabase.driver(
@@ -15,11 +15,42 @@ driver = GraphDatabase.driver(
 ms_graph = MsGraphRAG(driver=driver, model='gpt-5-mini')
 
 
-allowed_entities = ["Person", "Organization", "Location"]
+allowed_entities = [
+    "Person",
+    "Organization",
+    "Location",
+    "ResearchInstitution",
+    "SpaceMission",
+    "CelestialBody",
+    "Species",
+    "ChemicalSubstance",
+    "Molecule",
+    "Gene",
+    "Protein",
+    "Process",
+    "Phenomenon",
+    "Measurement",
+    "Instrument",
+    "Dataset",
+    "Publication",
+    "Experiment",
+    "Method",
+    "Theory",
+    "Model",
+    "Equation",
+    "Date",
+    "Unit",
+    "Telescope",
+    "Satellite",
+    "Planet",
+    "Region",
+    "Environment",
+    "Discipline"
+]
 text_chunker = SectionSplitter()
 async def main():
     # Extract entities and relationships
-    await ms_graph.run(text_chunker.run("html"),allowed_entities=allowed_entities)
+    await ms_graph.load_data(get_sample(),allowed_entities=allowed_entities)
 
     # Close the connection (sync)
     ms_graph.close()

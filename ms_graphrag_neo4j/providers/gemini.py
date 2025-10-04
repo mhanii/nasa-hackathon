@@ -13,23 +13,25 @@ from google.genai import types
 
 class GeminiLLM(LLMInterface):
     """Custom Gemini LLM implementation using google-generativeai package"""
-    
+
     def __init__(
         self,
-        model_name: str = "gemini-2.5-flash",
+        model_name: str = "gemini-2.5-flash", # Updated to a common model name
         api_key: Optional[str] = None,
         model_params: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ):
         super().__init__(model_name=model_name, model_params=model_params, **kwargs)
-        
+
         # Configure Gemini API
         api_key = api_key or os.getenv('GOOGLE_API_KEY')
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY is not set.")
         genai.configure(api_key=api_key)
-        
+
         # Initialize model
         self.model = genai.GenerativeModel(model_name)
-        
+
         # Default generation config
         self.generation_config = {
             "temperature": model_params.get("temperature", 0) if model_params else 0,
@@ -37,75 +39,73 @@ class GeminiLLM(LLMInterface):
             "top_k": model_params.get("top_k", 40) if model_params else 40,
             "max_output_tokens": model_params.get("max_output_tokens", 8192) if model_params else 8192,
         }
-    
-    def _format_messages(
-        self,
-        input: str,
-        message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
-        system_instruction: Optional[str] = None,
-    ) -> tuple[str, list]:
-        """Convert message history to Gemini format"""
-        history = []
-        
-        if message_history:
-            # Handle MessageHistory object
-            if isinstance(message_history, MessageHistory):
-                messages = message_history.messages
-            else:
-                messages = message_history
-            
-            # Convert to Gemini format (role: user/model, parts: [text])
-            for msg in messages:
-                role = "user" if msg.role in ["user", "system"] else "model"
-                history.append({
-                    "role": role,
-                    "parts": [msg.content]
-                })
-        
-        return input, history
-    
+
+    # def _format_messages(self, messages: List[LLMMessage]) -> list:
+    #     """
+    #     Converts a list of LLMMessage objects to the Gemini API's expected format.
+    #     Maps 'system' role to 'user' and ensures correct structure.
+    #     """
+    #     gemini_messages = []
+    #     for msg in messages:
+    #         # Gemini API uses 'user' and 'model' for turn-based conversation.
+    #         # The 'system' role is mapped to 'user'.
+    #         role = "user" if msg.role in ["user", "system"] else "model"
+    #         gemini_messages.append({
+    #             "role": role,
+    #             "parts": [msg.content]
+    #         })
+    #     return gemini_messages
+
     def invoke(
         self,
-        input: str,
+        input: Union[str, List[LLMMessage]],
         message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
         system_instruction: Optional[str] = None,
     ) -> LLMResponse:
-        """Send input to Gemini and return response"""
+        """Send input to Gemini and return response."""
+
+        all_messages: List[LLMMessage] = []
+
+        # 1. Add system instruction
+        if system_instruction:
+            all_messages.append(LLMMessage(role="system", content=system_instruction))
+
+        # 2. Add message history
+        if message_history:
+            history_list = message_history.messages if isinstance(message_history, MessageHistory) else message_history
+            all_messages.extend(history_list)
+
+        # 3. Add the main input
+        if isinstance(input, list):
+            # Handles the case from the traceback where the full conversation is passed as `input`
+            all_messages.extend(input)
+        elif isinstance(input, str):
+            # Handles the standard case where `input` is the final user message
+            all_messages.append(LLMMessage(role="user", content=input))
         
-        input_text, history = self._format_messages(input, message_history, system_instruction)
-        
+        # 4. Format all messages for the Gemini API
+        gemini_formatted_messages = self._format_messages(all_messages)
+
         try:
-            # Start chat with history if available
-            if history:
-                chat = self.model.start_chat(history=history)
-                response = chat.send_message(
-                    input_text,
-                    generation_config=self.generation_config
-                )
-            else:
-                # Direct generation without history
-                response = self.model.generate_content(
-                    input_text,
-                    generation_config=self.generation_config
-                )
+            # Use generate_content with the complete, formatted conversation history
+            response = self.model.generate_content(
+                gemini_formatted_messages,
+                generation_config=self.generation_config
+            )
             
-            # Extract text from response
             content = response.text
-            
             return LLMResponse(content=content)
-            
+
         except Exception as e:
-            from neo4j_graphrag.exceptions import LLMGenerationError
-            raise LLMGenerationError(f"Gemini API error: {str(e)}")
-    
+            print(f"Gemini API error: {str(e)}")
+
     async def ainvoke(
         self,
-        input: str,
+        input: Union[str, List[LLMMessage]],
         message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
         system_instruction: Optional[str] = None,
     ) -> LLMResponse:
         """Async version - runs in executor since google-generativeai doesn't have native async"""
-        
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
@@ -114,7 +114,6 @@ class GeminiLLM(LLMInterface):
             message_history,
             system_instruction
         )
-
 
 class GeminiEmbeddings(Embedder):
     """Custom Gemini Embeddings using google-generativeai package"""

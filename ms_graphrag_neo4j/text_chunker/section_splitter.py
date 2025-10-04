@@ -1,5 +1,4 @@
 from neo4j_graphrag.experimental.components.types import TextChunk, TextChunks
-from ms_graphrag_neo4j.article_downloader.handler import ArticleDownloader
 
 
 
@@ -7,10 +6,10 @@ from ms_graphrag_neo4j.article_downloader.handler import ArticleDownloader
 
 
 class SectionSplitter:
-    def __init__(self,article_downloader: ArticleDownloader = None):
+    def __init__(self):
         
-        
-        self.downloader = ArticleDownloader()
+        pass
+
 
     def run(self, html_content: str) -> TextChunks:
         """

@@ -76,17 +76,29 @@ MERGE (s)-[r:SUMMARIZED_RELATIONSHIP]-(t)
 SET r.summary = e.description
 """
 
-drop_gds_graph_query = "CALL gds.graph.drop('entity', False) YIELD graphName"
+drop_gds_graph_query = "CALL gds.graph.drop('entity', false) YIELD graphName"
 
 create_gds_graph_query = """
-MATCH (source:__Entity__)-[r:RELATIONSHIP]->(target:__Entity__)
-WITH gds.graph.project('entity', source, target, {}, {undirectedRelationshipTypes: ['*']}) AS g
-RETURN
-    g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels
+CALL gds.graph.project(
+    'entity',
+    '__Entity__',
+    {
+        RELATIONSHIP: {
+            orientation: 'UNDIRECTED'
+        }
+    }
+)
+YIELD graphName, nodeCount, relationshipCount
+RETURN graphName, nodeCount, relationshipCount
 """
 
 leiden_query = """
-CALL gds.leiden.write("entity", {writeProperty:"communities", includeIntermediateCommunities: True})
+CALL gds.leiden.write('entity', {
+    writeProperty: 'communities',
+    includeIntermediateCommunities: true
+})
+YIELD communityCount, ranLevels, modularity
+RETURN communityCount, ranLevels, modularity
 """
 
 community_hierarchy_query = """
