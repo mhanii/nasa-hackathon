@@ -23,7 +23,47 @@ ALLOWED_ENTITIES = [
     "protein",
     "medical_condition",
 ]
+ALLOWED_RELATIONSHIPS = [
+    # General / Hierarchical
+    "IS_A",
+    "PART_OF",
+    "HAS_A",
+    "RELATED_TO",
+    "DERIVED_FROM",
+    
+    # Professional / Organizational
+    "WORKS_FOR",
+    "FOUNDED_BY",
+    "CEO_OF",
+    "MANAGES",
+    "PARTNERED_WITH",
+    "ACQUIRED",
+    "INVESTED_IN",
+    "COMPETES_WITH",
+    "CUSTOMER_OF",
 
+    # Locational
+    "LOCATED_IN",
+    "BASED_IN",
+    "BORN_IN",
+    
+    # Technical / Conceptual
+    "USES",
+    "DEVELOPS",
+    "SUPPORTS",
+    "DEPENDS_ON",
+    "INTEGRATES_WITH",
+    
+    # Causal / Influence
+    "CAUSES",
+    "INFLUENCES",
+    "PREcedes",
+    
+    # Personal
+    "SPOUSE_OF",
+    "CHILD_OF",
+    "KNOWS",
+]
 
 async def load_documents_to_graph(
     csv_file_path: str,
@@ -101,7 +141,7 @@ async def load_documents_to_graph(
 
                     if article_data:
                         # Load data into the graph
-                        await graph_rag.load_data(article_data, ALLOWED_ENTITIES)
+                        await graph_rag.load_data(article_data, ALLOWED_ENTITIES,ALLOWED_RELATIONSHIPS)
                         print(f"✓ Successfully loaded document: {link}")
                         results["processed"] += 1
                     else:
@@ -184,7 +224,7 @@ if __name__ == "__main__":
     # asyncio.run(process_all_documents("yourfile.csv"))
     
     # Example 2: Process documents 0-10
-    asyncio.run(process_document_range("SB_publication_PMC.csv", start=0, end=5))
+    asyncio.run(process_document_range("SB_publication_PMC.csv", start=0, end=3))
     
     # Example 3: Process a single document at index 5
     # asyncio.run(process_single_document("yourfile.csv", index=5))
