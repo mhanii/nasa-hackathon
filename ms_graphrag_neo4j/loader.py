@@ -161,11 +161,14 @@ async def load_documents_to_graph(
                         "link": link,
                         "error": str(e)
                     })
+        graph_rag.run_graph_diagnostics()
 
     finally:
         graph_rag.close()
+
         driver.close()
     
+
     return results
 
 
@@ -224,7 +227,7 @@ if __name__ == "__main__":
     # asyncio.run(process_all_documents("yourfile.csv"))
     
     # Example 2: Process documents 0-10
-    asyncio.run(process_document_range("SB_publication_PMC.csv", start=0, end=3))
+    asyncio.run(process_document_range("SB_publication_PMC.csv", start=0, end=10))
     
     # Example 3: Process a single document at index 5
     # asyncio.run(process_single_document("yourfile.csv", index=5))

@@ -343,12 +343,12 @@ class GraphConstructor:
                 })
             return relationships
 
+        # The outer 'for doc in documents:' loop has been removed to prevent redundant processing.
+        processed_rels_lists = await asyncio.gather(*[process_document(doc) for doc in documents])
+
         all_relationships = []
-        for doc in documents:
-            # Using asyncio.gather for concurrent processing of documents
-            processed_rels = await asyncio.gather(*[process_document(doc) for doc in documents])
-            for rel_list in processed_rels:
-                all_relationships.extend(rel_list)
+        for rel_list in processed_rels_lists:
+            all_relationships.extend(rel_list)
 
         # Group relationships by type for efficient, batch import
         grouped_rels = defaultdict(list)
@@ -377,8 +377,7 @@ class GraphConstructor:
             print(f"Created {len(rel_data)} relationships of type :{rel_type}")
 
         return f"Created a total of {total_rels_created} typed relationships between documents."
-
-
+    
     def analyze_leiden_output(self) -> str:
         """
         Analyze the Leiden algorithm output to understand community structure.

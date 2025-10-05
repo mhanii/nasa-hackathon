@@ -208,10 +208,13 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
 
 
 
+    # Replace your existing diagnostic methods with this full block.
+
+# Replace your existing diagnostic methods with this full, corrected block.
+
     def run_graph_diagnostics(self, saturation_threshold: int = 25, sparsity_threshold: int = 3):
         """
-        Runs a full suite of diagnostic checks on the graph (entity and document level)
-        and prints a comprehensive report.
+        Runs a full suite of diagnostic checks on the graph and prints a comprehensive report.
         
         Args:
             saturation_threshold (int): The degree/count above which a node is considered "saturated".
@@ -221,9 +224,17 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
         print("      Running Knowledge Graph Health Diagnostics")
         print("="*50)
         
+        # Section 1: Check for missing information
         self.identify_gaps()
+        
+        # Section 2: Check for overly dense areas
         self.find_saturated_areas(degree_threshold=saturation_threshold)
+        
+        # Section 3: Check for under-discovered areas
         self.find_sparse_areas(entity_threshold=sparsity_threshold)
+        
+        # Section 4: Analyze the relationships between documents
+        self.analyze_document_relationships()
         
         print("\n" + "="*50)
         print("            Diagnostic Run Complete")
@@ -231,8 +242,8 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
 
     def identify_gaps(self):
         """
-        Identifies potential gaps in the knowledge graph, such as missing summaries
-        or disconnected entities.
+        Identifies potential gaps in the knowledge graph, such as missing summaries,
+        disconnected entities, or isolated documents.
         """
         print("\n--- 1. Identifying Gaps (Missing Information) ---")
         
@@ -241,8 +252,7 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
             MATCH (e:__Entity__)
             WHERE e.summary IS NULL AND size(e.description) > 1
             RETURN e.name AS name, size(e.description) AS description_count
-            ORDER BY description_count DESC
-            LIMIT 10
+            ORDER BY description_count DESC LIMIT 10
         """)
         if unsummarized_entities:
             print(f"\n[GAP] Found {len(unsummarized_entities)} multi-mention entities needing summarization:")
@@ -253,10 +263,8 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
             
         # Gap 2: Orphaned entities with no relationships at all
         orphaned_entities = self.query("""
-            MATCH (e:__Entity__)
-            WHERE NOT (e)--()
-            RETURN e.name AS name
-            LIMIT 10
+            MATCH (e:__Entity__) WHERE NOT (e)--()
+            RETURN e.name AS name LIMIT 10
         """)
         if orphaned_entities:
             print(f"\n[GAP] Found {len(orphaned_entities)} orphaned entities with no relationships:")
@@ -265,24 +273,36 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
         else:
             print("\n✓ No orphaned entities found.")
 
+        # Gap 3: Documents that have no typed relationships with other documents
+        isolated_docs = self.query("""
+            MATCH (d:Document)
+            WHERE NOT (d)-[:SUPPORTS|CONTRADICTS|BUILDS_UPON|NEUTRAL]-()
+            AND NOT ()-[:SUPPORTS|CONTRADICTS|BUILDS_UPON|NEUTRAL]->(d)
+            RETURN d.title AS title LIMIT 10
+        """)
+        if isolated_docs:
+            print(f"\n[GAP] Found {len(isolated_docs)} documents isolated from inter-document analysis:")
+            for record in isolated_docs:
+                print(f"  - Document: '{record['title']}'")
+        else:
+            print("\n✓ All documents are integrated into the inter-document analysis.")
+
+
     def find_saturated_areas(self, degree_threshold: int = 25):
         """
         Finds "saturated" parts of the graph, such as hub nodes or documents that
         generated an unusually high number of entities.
-        
-        Args:
-            degree_threshold (int): The number of relationships/entities above which to flag an item.
         """
         print(f"\n--- 2. Finding Saturated Areas (High Density) ---")
         
         # Saturation 1: "Hub" entities with many connections
+        # CORRECTED a syntax error here: size((e)--()) is deprecated.
         hub_entities = self.query("""
             MATCH (e:__Entity__)
-            WITH e, size((e)--()) AS degree
+            WITH e, COUNT { (e)--() } AS degree
             WHERE degree > $threshold
             RETURN e.name AS name, degree
-            ORDER BY degree DESC
-            LIMIT 10
+            ORDER BY degree DESC LIMIT 10
         """, params={"threshold": degree_threshold})
         
         if hub_entities:
@@ -298,8 +318,7 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
             WITH d, count(DISTINCT e) AS entity_count
             WHERE entity_count > $threshold
             RETURN d.title AS title, entity_count
-            ORDER BY entity_count DESC
-            LIMIT 10
+            ORDER BY entity_count DESC LIMIT 10
         """, params={"threshold": degree_threshold})
         
         if high_yield_docs:
@@ -309,22 +328,20 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
         else:
             print(f"\n✓ No overly dense documents found.")
 
+
     def find_sparse_areas(self, entity_threshold: int = 3):
         """
         Finds "sparse" or "under-discovered" areas, such as leaf nodes or documents
         that yielded few entities.
-        
-        Args:
-            entity_threshold (int): The count below which a document is considered sparse.
         """
         print(f"\n--- 3. Finding Sparse Areas (Low Discovery) ---")
         
         # Sparsity 1: Leaf entities with only one connection
+        # CORRECTED a syntax error here: size((e)--()) is deprecated.
         leaf_entities = self.query("""
             MATCH (e:__Entity__)
-            WHERE size((e)--()) = 1
-            RETURN e.name AS name
-            LIMIT 10
+            WHERE COUNT { (e)--() } = 1
+            RETURN e.name AS name LIMIT 10
         """)
         if leaf_entities:
             print(f"\n[SPARSE] Found {len(leaf_entities)} leaf entities (only one connection):")
@@ -332,15 +349,14 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
                 print(f"  - Entity: '{record['name']}'")
         else:
             print("\n✓ No leaf entities found.")
-            
+                
         # Sparsity 2: Documents that generated very few entities
         low_yield_docs = self.query("""
             MATCH (d:Document)
             WITH d, size([(d)<--(:__Chunk__)--(e:__Entity__) | e]) as entity_count
             WHERE entity_count < $threshold
             RETURN d.title AS title, entity_count
-            ORDER BY entity_count ASC
-            LIMIT 10
+            ORDER BY entity_count ASC LIMIT 10
         """, params={"threshold": entity_threshold})
         
         if low_yield_docs:
@@ -350,11 +366,64 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
         else:
             print(f"\n✓ All documents appear to generate a sufficient number of entities.")
 
+    def analyze_document_relationships(self):
+        """
+        Analyzes and aggregates the typed relationships between documents to understand
+        the overall discourse within the knowledge base.
+        """
+        print("\n--- 4. Analyzing Inter-Document Discourse ---")
 
+        # Analysis 1: Overall relationship counts
+        rel_counts = self.query("""
+            MATCH ()-[r]->()
+            WHERE type(r) IN ['SUPPORTS', 'CONTRADICTS', 'BUILDS_UPON', 'NEUTRAL']
+            RETURN type(r) AS rel_type, count(r) AS count
+            ORDER BY count DESC
+        """)
+        if rel_counts:
+            print("\n[ANALYSIS] Overall distribution of document relationships:")
+            for record in rel_counts:
+                print(f"  - {record['rel_type']}: {record['count']} relationships")
+        else:
+            print("\n✓ No inter-document relationships found to analyze.")
+            return # Stop here if there's nothing to analyze
+
+        # Analysis 2: Find the most influential documents (high outgoing support/builds_upon)
+        influential_docs = self.query("""
+            MATCH (d:Document)-[r:SUPPORTS|BUILDS_UPON]->()
+            RETURN d.title AS title, count(r) AS influence_score
+            ORDER BY influence_score DESC LIMIT 5
+        """)
+        if influential_docs:
+            print("\n[ANALYSIS] Top 5 most influential documents (providing support to others):")
+            for record in influential_docs:
+                print(f"  - '{record['title']}' (supports/builds upon {record['influence_score']} other docs)")
+                
+        # Analysis 3: Find the most widely supported documents (high incoming support)
+        supported_docs = self.query("""
+            MATCH (d:Document)<-[r:SUPPORTS|BUILDS_UPON]-()
+            RETURN d.title AS title, count(r) AS support_score
+            ORDER BY support_score DESC LIMIT 5
+        """)
+        if supported_docs:
+            print("\n[ANALYSIS] Top 5 most widely supported documents (receiving support):")
+            for record in supported_docs:
+                print(f"  - '{record['title']}' (supported by {record['support_score']} other docs)")
+                
+        # Analysis 4: Find the most controversial/contradictory documents
+        contradictory_docs = self.query("""
+            MATCH (d:Document)-[r:CONTRADICTS]->()
+            RETURN d.title AS title, count(r) AS contradiction_score
+            ORDER BY contradiction_score DESC LIMIT 5
+        """)
+        if contradictory_docs:
+            print("\n[ANALYSIS] Top 5 most contradictory documents:")
+            for record in contradictory_docs:
+                print(f"  - '{record['title']}' (contradicts {record['contradiction_score']} other docs)")
     def close(self) -> None:
         """
         Explicitly close the Neo4j driver connection.
-
+s
         Delegates connection management to the Neo4j driver.
         """
         if hasattr(self, "_driver"):

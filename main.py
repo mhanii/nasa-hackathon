@@ -93,7 +93,7 @@ text_chunker = SectionSplitter()
 async def main():
     # Extract entities and relationships
     await ms_graph.load_data(get_sample(),allowed_entities=allowed_entities,allowed_relationships=allowed_relationships)
-
+    await ms_graph.run_graph_diagnostics()
     # Close the connection (sync)
     ms_graph.close()
 
