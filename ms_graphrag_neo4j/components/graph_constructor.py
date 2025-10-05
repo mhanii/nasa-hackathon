@@ -47,7 +47,7 @@ class GraphConstructor:
                 completion_delimiter="\n\n",
             )
             messages = [{"role": "user", "content": prompt}]
-            output = await self.achat(messages, model=self.model)
+            output = await self.achat(messages)
             return parse_extraction_output(output.content)
 
         tasks = [process_text(text) for text in input_texts]
@@ -189,7 +189,7 @@ class GraphConstructor:
                     ),
                 },
             ]
-            summary = await self.achat(messages, model=self.model)
+            summary = await self.achat(messages)
             return {"entity": node["entity_name"], "summary": summary.content}
 
         if self.max_workers:
@@ -327,7 +327,7 @@ class GraphConstructor:
                         document_2_summary=similar_doc["summary"]
                     )
                     messages = [{"role": "user", "content": prompt}]
-                    response = await self.achat(messages, model=self.model)
+                    response = await self.achat(messages)
                     
                     # Clean up the response to get just the label
                     extracted_type = response.content.strip().upper()

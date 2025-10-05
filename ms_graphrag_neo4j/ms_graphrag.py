@@ -194,6 +194,7 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
         )
         return response.choices[0].message
 
+
     async def astream_chat(self, messages, model='gpt-5-mini', config={}):
         response = await self._openai_client.chat.completions.create(
             model=model,
@@ -204,6 +205,151 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
         async for chunk in response:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
+
+
+
+    def run_graph_diagnostics(self, saturation_threshold: int = 25, sparsity_threshold: int = 3):
+        """
+        Runs a full suite of diagnostic checks on the graph (entity and document level)
+        and prints a comprehensive report.
+        
+        Args:
+            saturation_threshold (int): The degree/count above which a node is considered "saturated".
+            sparsity_threshold (int): The entity count below which a document is considered "sparse".
+        """
+        print("\n" + "="*50)
+        print("      Running Knowledge Graph Health Diagnostics")
+        print("="*50)
+        
+        self.identify_gaps()
+        self.find_saturated_areas(degree_threshold=saturation_threshold)
+        self.find_sparse_areas(entity_threshold=sparsity_threshold)
+        
+        print("\n" + "="*50)
+        print("            Diagnostic Run Complete")
+        print("="*50)
+
+    def identify_gaps(self):
+        """
+        Identifies potential gaps in the knowledge graph, such as missing summaries
+        or disconnected entities.
+        """
+        print("\n--- 1. Identifying Gaps (Missing Information) ---")
+        
+        # Gap 1: Entities that were extracted but never summarized
+        unsummarized_entities = self.query("""
+            MATCH (e:__Entity__)
+            WHERE e.summary IS NULL AND size(e.description) > 1
+            RETURN e.name AS name, size(e.description) AS description_count
+            ORDER BY description_count DESC
+            LIMIT 10
+        """)
+        if unsummarized_entities:
+            print(f"\n[GAP] Found {len(unsummarized_entities)} multi-mention entities needing summarization:")
+            for record in unsummarized_entities:
+                print(f"  - Entity: '{record['name']}' ({record['description_count']} descriptions)")
+        else:
+            print("\n✓ No unsummarized entities found.")
+            
+        # Gap 2: Orphaned entities with no relationships at all
+        orphaned_entities = self.query("""
+            MATCH (e:__Entity__)
+            WHERE NOT (e)--()
+            RETURN e.name AS name
+            LIMIT 10
+        """)
+        if orphaned_entities:
+            print(f"\n[GAP] Found {len(orphaned_entities)} orphaned entities with no relationships:")
+            for record in orphaned_entities:
+                print(f"  - Entity: '{record['name']}'")
+        else:
+            print("\n✓ No orphaned entities found.")
+
+    def find_saturated_areas(self, degree_threshold: int = 25):
+        """
+        Finds "saturated" parts of the graph, such as hub nodes or documents that
+        generated an unusually high number of entities.
+        
+        Args:
+            degree_threshold (int): The number of relationships/entities above which to flag an item.
+        """
+        print(f"\n--- 2. Finding Saturated Areas (High Density) ---")
+        
+        # Saturation 1: "Hub" entities with many connections
+        hub_entities = self.query("""
+            MATCH (e:__Entity__)
+            WITH e, size((e)--()) AS degree
+            WHERE degree > $threshold
+            RETURN e.name AS name, degree
+            ORDER BY degree DESC
+            LIMIT 10
+        """, params={"threshold": degree_threshold})
+        
+        if hub_entities:
+            print(f"\n[SATURATED] Found {len(hub_entities)} hub entities (degree > {degree_threshold}):")
+            for record in hub_entities:
+                print(f"  - Entity: '{record['name']}' ({record['degree']} relationships)")
+        else:
+            print(f"\n✓ No significant hub entities found (degree > {degree_threshold}).")
+            
+        # Saturation 2: Documents that generated a very high number of entities
+        high_yield_docs = self.query("""
+            MATCH (d:Document)<--(:__Chunk__)-->(e:__Entity__)
+            WITH d, count(DISTINCT e) AS entity_count
+            WHERE entity_count > $threshold
+            RETURN d.title AS title, entity_count
+            ORDER BY entity_count DESC
+            LIMIT 10
+        """, params={"threshold": degree_threshold})
+        
+        if high_yield_docs:
+            print(f"\n[SATURATED] Found {len(high_yield_docs)} high-yield documents (> {degree_threshold} entities):")
+            for record in high_yield_docs:
+                print(f"  - Document: '{record['title']}' ({record['entity_count']} entities)")
+        else:
+            print(f"\n✓ No overly dense documents found.")
+
+    def find_sparse_areas(self, entity_threshold: int = 3):
+        """
+        Finds "sparse" or "under-discovered" areas, such as leaf nodes or documents
+        that yielded few entities.
+        
+        Args:
+            entity_threshold (int): The count below which a document is considered sparse.
+        """
+        print(f"\n--- 3. Finding Sparse Areas (Low Discovery) ---")
+        
+        # Sparsity 1: Leaf entities with only one connection
+        leaf_entities = self.query("""
+            MATCH (e:__Entity__)
+            WHERE size((e)--()) = 1
+            RETURN e.name AS name
+            LIMIT 10
+        """)
+        if leaf_entities:
+            print(f"\n[SPARSE] Found {len(leaf_entities)} leaf entities (only one connection):")
+            for record in leaf_entities:
+                print(f"  - Entity: '{record['name']}'")
+        else:
+            print("\n✓ No leaf entities found.")
+            
+        # Sparsity 2: Documents that generated very few entities
+        low_yield_docs = self.query("""
+            MATCH (d:Document)
+            WITH d, size([(d)<--(:__Chunk__)--(e:__Entity__) | e]) as entity_count
+            WHERE entity_count < $threshold
+            RETURN d.title AS title, entity_count
+            ORDER BY entity_count ASC
+            LIMIT 10
+        """, params={"threshold": entity_threshold})
+        
+        if low_yield_docs:
+            print(f"\n[SPARSE] Found {len(low_yield_docs)} documents yielding < {entity_threshold} entities:")
+            for record in low_yield_docs:
+                print(f"  - Document: '{record['title']}' ({record['entity_count']} entities)")
+        else:
+            print(f"\n✓ All documents appear to generate a sufficient number of entities.")
+
 
     def close(self) -> None:
         """
