@@ -195,6 +195,18 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
         return response.choices[0].message
 
 
+    async def astream_chat(self, messages, model='gpt-5-mini', config={}):
+        response = await self._openai_client.chat.completions.create(
+            model=model,
+            messages=messages,
+            stream=True,
+            **config,
+        )
+        async for chunk in response:
+            if chunk.choices and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
+
 
     def run_graph_diagnostics(self, saturation_threshold: int = 25, sparsity_threshold: int = 3):
         """
@@ -337,6 +349,7 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
                 print(f"  - Document: '{record['title']}' ({record['entity_count']} entities)")
         else:
             print(f"\n✓ All documents appear to generate a sufficient number of entities.")
+
 
     def close(self) -> None:
         """
