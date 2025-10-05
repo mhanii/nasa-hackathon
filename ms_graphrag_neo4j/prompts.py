@@ -48,9 +48,12 @@ Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<e
 For each pair of related entities, extract the following information:
 - source_entity: name of the source entity, as identified in step 1
 - target_entity: name of the target entity, as identified in step 1
+- relationship_type: MUST be one of the following types: [{relationship_types}]
 - relationship_description: explanation as to why you think the source entity and the target entity are related to each other
-- relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
- Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_strength>)
+- relationship_strength: a numeric score between 1-10 indicating strength of the relationship between the source entity and target entity
+Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_type>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_strength>)
+
+IMPORTANT: You must ONLY use entity types from the provided list and relationship types from the provided list. Do not create new types.
 
 3. Return output in English as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
 
@@ -60,7 +63,8 @@ For each pair of related entities, extract the following information:
 -Examples-
 ######################
 Example 1:
-Entity_types: ORGANIZATION,PERSON
+Entity_types: [ORGANIZATION, PERSON]
+Relationship_types: [CHAIRS, PART_OF, EMPLOYED_BY, MANAGES]
 Text:
 The Verdantis's Central Institution is scheduled to meet on Monday and Thursday, with the institution planning to release its latest policy decision on Thursday at 1:30 p.m. PDT, followed by a press conference where Central Institution Chair Martin Smith will take questions. Investors expect the Market Strategy Committee to hold its benchmark interest rate steady in a range of 3.5%-3.75%.
 ######################
@@ -71,12 +75,15 @@ Output:
 {record_delimiter}
 ("entity"{tuple_delimiter}MARKET STRATEGY COMMITTEE{tuple_delimiter}ORGANIZATION{tuple_delimiter}The Central Institution committee makes key decisions about interest rates and the growth of Verdantis's money supply)
 {record_delimiter}
-("relationship"{tuple_delimiter}MARTIN SMITH{tuple_delimiter}CENTRAL INSTITUTION{tuple_delimiter}Martin Smith is the Chair of the Central Institution and will answer questions at a press conference{tuple_delimiter}9)
+("relationship"{tuple_delimiter}MARTIN SMITH{tuple_delimiter}CENTRAL INSTITUTION{tuple_delimiter}CHAIRS{tuple_delimiter}Martin Smith is the Chair of the Central Institution and will answer questions at a press conference{tuple_delimiter}9)
+{record_delimiter}
+("relationship"{tuple_delimiter}MARKET STRATEGY COMMITTEE{tuple_delimiter}CENTRAL INSTITUTION{tuple_delimiter}PART_OF{tuple_delimiter}The Market Strategy Committee is a committee within the Central Institution{tuple_delimiter}8)
 {completion_delimiter}
 
 ######################
 Example 2:
-Entity_types: ORGANIZATION
+Entity_types: [ORGANIZATION]
+Relationship_types: [OWNED, ACQUIRED, COMPETES_WITH]
 Text:
 TechGlobal's (TG) stock skyrocketed in its opening day on the Global Exchange Thursday. But IPO experts warn that the semiconductor corporation's debut on the public markets isn't indicative of how other newly listed companies may perform.
 
@@ -87,12 +94,13 @@ Output:
 {record_delimiter}
 ("entity"{tuple_delimiter}VISION HOLDINGS{tuple_delimiter}ORGANIZATION{tuple_delimiter}Vision Holdings is a firm that previously owned TechGlobal)
 {record_delimiter}
-("relationship"{tuple_delimiter}TECHGLOBAL{tuple_delimiter}VISION HOLDINGS{tuple_delimiter}Vision Holdings formerly owned TechGlobal from 2014 until present{tuple_delimiter}5)
+("relationship"{tuple_delimiter}VISION HOLDINGS{tuple_delimiter}TECHGLOBAL{tuple_delimiter}OWNED{tuple_delimiter}Vision Holdings took TechGlobal private in 2014 and owned it until its recent IPO{tuple_delimiter}7)
 {completion_delimiter}
 
 ######################
 Example 3:
-Entity_types: ORGANIZATION,GEO,PERSON
+Entity_types: [ORGANIZATION, GEO, PERSON]
+Relationship_types: [NEGOTIATED_WITH, MEDIATED_FOR, CAPITAL_OF, LOCATED_IN, IMPRISONED_IN, RELEASED_WITH, HELD_HOSTAGE_BY]
 Text:
 Five Aurelians jailed for 8 years in Firuzabad and widely regarded as hostages are on their way home to Aurelia.
 
@@ -111,7 +119,6 @@ Output:
 {record_delimiter}
 ("entity"{tuple_delimiter}QUINTARA{tuple_delimiter}GEO{tuple_delimiter}Country that negotiated a swap of money in exchange for hostages)
 {record_delimiter}
-{record_delimiter}
 ("entity"{tuple_delimiter}TIRUZIA{tuple_delimiter}GEO{tuple_delimiter}Capital of Firuzabad where the Aurelians were being held)
 {record_delimiter}
 ("entity"{tuple_delimiter}KROHAARA{tuple_delimiter}GEO{tuple_delimiter}Capital city in Quintara)
@@ -126,31 +133,40 @@ Output:
 {record_delimiter}
 ("entity"{tuple_delimiter}MEGGIE TAZBAH{tuple_delimiter}PERSON{tuple_delimiter}Bratinas national and environmentalist who was held hostage)
 {record_delimiter}
-("relationship"{tuple_delimiter}FIRUZABAD{tuple_delimiter}AURELIA{tuple_delimiter}Firuzabad negotiated a hostage exchange with Aurelia{tuple_delimiter}2)
+("relationship"{tuple_delimiter}FIRUZABAD{tuple_delimiter}AURELIA{tuple_delimiter}NEGOTIATED_WITH{tuple_delimiter}Firuzabad negotiated a hostage exchange with Aurelia{tuple_delimiter}6)
 {record_delimiter}
-("relationship"{tuple_delimiter}QUINTARA{tuple_delimiter}AURELIA{tuple_delimiter}Quintara brokered the hostage exchange between Firuzabad and Aurelia{tuple_delimiter}2)
+("relationship"{tuple_delimiter}QUINTARA{tuple_delimiter}AURELIA{tuple_delimiter}MEDIATED_FOR{tuple_delimiter}Quintara brokered the hostage exchange between Firuzabad and Aurelia{tuple_delimiter}7)
 {record_delimiter}
-("relationship"{tuple_delimiter}QUINTARA{tuple_delimiter}FIRUZABAD{tuple_delimiter}Quintara brokered the hostage exchange between Firuzabad and Aurelia{tuple_delimiter}2)
+("relationship"{tuple_delimiter}QUINTARA{tuple_delimiter}FIRUZABAD{tuple_delimiter}MEDIATED_FOR{tuple_delimiter}Quintara brokered the hostage exchange between Firuzabad and Aurelia{tuple_delimiter}7)
 {record_delimiter}
-("relationship"{tuple_delimiter}SAMUEL NAMARA{tuple_delimiter}ALHAMIA PRISON{tuple_delimiter}Samuel Namara was a prisoner at Alhamia prison{tuple_delimiter}8)
+("relationship"{tuple_delimiter}TIRUZIA{tuple_delimiter}FIRUZABAD{tuple_delimiter}CAPITAL_OF{tuple_delimiter}Tiruzia is the capital city of Firuzabad{tuple_delimiter}9)
 {record_delimiter}
-("relationship"{tuple_delimiter}SAMUEL NAMARA{tuple_delimiter}MEGGIE TAZBAH{tuple_delimiter}Samuel Namara and Meggie Tazbah were exchanged in the same hostage release{tuple_delimiter}2)
+("relationship"{tuple_delimiter}KROHAARA{tuple_delimiter}QUINTARA{tuple_delimiter}CAPITAL_OF{tuple_delimiter}Krohaara is the capital city of Quintara{tuple_delimiter}9)
 {record_delimiter}
-("relationship"{tuple_delimiter}SAMUEL NAMARA{tuple_delimiter}DURKE BATAGLANI{tuple_delimiter}Samuel Namara and Durke Bataglani were exchanged in the same hostage release{tuple_delimiter}2)
+("relationship"{tuple_delimiter}CASHION{tuple_delimiter}AURELIA{tuple_delimiter}CAPITAL_OF{tuple_delimiter}Cashion is the capital city of Aurelia{tuple_delimiter}9)
 {record_delimiter}
-("relationship"{tuple_delimiter}MEGGIE TAZBAH{tuple_delimiter}DURKE BATAGLANI{tuple_delimiter}Meggie Tazbah and Durke Bataglani were exchanged in the same hostage release{tuple_delimiter}2)
+("relationship"{tuple_delimiter}ALHAMIA PRISON{tuple_delimiter}TIRUZIA{tuple_delimiter}LOCATED_IN{tuple_delimiter}Alhamia Prison is located in Tiruzia{tuple_delimiter}9)
 {record_delimiter}
-("relationship"{tuple_delimiter}SAMUEL NAMARA{tuple_delimiter}FIRUZABAD{tuple_delimiter}Samuel Namara was a hostage in Firuzabad{tuple_delimiter}2)
+("relationship"{tuple_delimiter}SAMUEL NAMARA{tuple_delimiter}ALHAMIA PRISON{tuple_delimiter}IMPRISONED_IN{tuple_delimiter}Samuel Namara was held as a prisoner at Alhamia Prison{tuple_delimiter}8)
 {record_delimiter}
-("relationship"{tuple_delimiter}MEGGIE TAZBAH{tuple_delimiter}FIRUZABAD{tuple_delimiter}Meggie Tazbah was a hostage in Firuzabad{tuple_delimiter}2)
+("relationship"{tuple_delimiter}SAMUEL NAMARA{tuple_delimiter}MEGGIE TAZBAH{tuple_delimiter}RELEASED_WITH{tuple_delimiter}Samuel Namara and Meggie Tazbah were exchanged in the same hostage release{tuple_delimiter}5)
 {record_delimiter}
-("relationship"{tuple_delimiter}DURKE BATAGLANI{tuple_delimiter}FIRUZABAD{tuple_delimiter}Durke Bataglani was a hostage in Firuzabad{tuple_delimiter}2)
+("relationship"{tuple_delimiter}SAMUEL NAMARA{tuple_delimiter}DURKE BATAGLANI{tuple_delimiter}RELEASED_WITH{tuple_delimiter}Samuel Namara and Durke Bataglani were exchanged in the same hostage release{tuple_delimiter}5)
+{record_delimiter}
+("relationship"{tuple_delimiter}MEGGIE TAZBAH{tuple_delimiter}DURKE BATAGLANI{tuple_delimiter}RELEASED_WITH{tuple_delimiter}Meggie Tazbah and Durke Bataglani were exchanged in the same hostage release{tuple_delimiter}5)
+{record_delimiter}
+("relationship"{tuple_delimiter}SAMUEL NAMARA{tuple_delimiter}FIRUZABAD{tuple_delimiter}HELD_HOSTAGE_BY{tuple_delimiter}Samuel Namara was held as a hostage in Firuzabad{tuple_delimiter}8)
+{record_delimiter}
+("relationship"{tuple_delimiter}MEGGIE TAZBAH{tuple_delimiter}FIRUZABAD{tuple_delimiter}HELD_HOSTAGE_BY{tuple_delimiter}Meggie Tazbah was held as a hostage in Firuzabad{tuple_delimiter}8)
+{record_delimiter}
+("relationship"{tuple_delimiter}DURKE BATAGLANI{tuple_delimiter}FIRUZABAD{tuple_delimiter}HELD_HOSTAGE_BY{tuple_delimiter}Durke Bataglani was held as a hostage in Firuzabad{tuple_delimiter}8)
 {completion_delimiter}
 
 ######################
 -Real Data-
 ######################
 Entity_types: {entity_types}
+Relationship_types: {relationship_types}
 Text: {input_text}
 ######################
 Output:"""
@@ -686,4 +702,114 @@ Do not include information where the supporting evidence for it is not provided.
 {response_type}
 
 Add sections and commentary to the response as appropriate for the length and format. Style the response in markdown.
+"""
+# Add these queries to your cypher_queries.py file
+
+# Query to identify completely disconnected communities
+identify_disconnected_communities = """
+MATCH (c:__Community__)
+WHERE NOT (c)<-[:IN_COMMUNITY]-() AND NOT (c)-[:IN_COMMUNITY]->()
+RETURN c.id AS communityId, 
+       c.level AS level, 
+       c.title AS title,
+       c.summary IS NOT NULL AS has_summary
+ORDER BY c.level
+"""
+
+# Query to find communities with only one-way connections (no incoming relationships)
+identify_oneway_communities = """
+MATCH (c:__Community__)
+WHERE NOT (c)<-[:IN_COMMUNITY]-()
+RETURN c.id AS communityId, 
+       c.level AS level,
+       count{(c)-[:IN_COMMUNITY]->()} AS outgoing_connections,
+       c.summary IS NOT NULL AS has_summary
+ORDER BY c.level
+"""
+
+# Clean delete of completely orphaned communities
+delete_orphaned_communities = """
+MATCH (c:__Community__)
+WHERE NOT (c)<-[:IN_COMMUNITY]-() AND NOT (c)-[:IN_COMMUNITY]->()
+WITH c, c.id AS communityId
+DETACH DELETE c
+RETURN communityId
+"""
+
+# More aggressive: Delete any community without incoming connections
+delete_oneway_communities = """
+MATCH (c:__Community__)
+WHERE NOT (c)<-[:IN_COMMUNITY]-()
+WITH c, c.id AS communityId, c.level AS level
+DETACH DELETE c
+RETURN communityId, level
+"""
+
+# Diagnostic query to understand community connection patterns
+community_connection_stats = """
+MATCH (c:__Community__)
+OPTIONAL MATCH (c)<-[:IN_COMMUNITY]-(incoming)
+OPTIONAL MATCH (c)-[:IN_COMMUNITY]->(outgoing)
+WITH c,
+     count(DISTINCT incoming) AS incoming_count,
+     count(DISTINCT outgoing) AS outgoing_count,
+     c.summary IS NOT NULL AS has_summary
+RETURN 
+    c.level AS level,
+    incoming_count,
+    outgoing_count,
+    has_summary,
+    count(c) AS community_count
+ORDER BY level, incoming_count, outgoing_count
+"""
+
+# Find the root cause: entities without proper community assignments
+find_problematic_entities = """
+MATCH (e:__Entity__)
+WHERE e.communities IS NOT NULL
+WITH e, size(e.communities) AS community_depth
+OPTIONAL MATCH (e)-[:IN_COMMUNITY]->(c:__Community__)
+WITH e, community_depth, count(c) AS connected_communities
+WHERE community_depth <> connected_communities
+RETURN e.name AS entity, 
+       community_depth AS expected_connections,
+       connected_communities AS actual_connections
+LIMIT 20
+"""
+
+# Verify and fix community hierarchy integrity
+fix_community_hierarchy = """
+// Remove communities that have no entities connected (neither directly nor indirectly)
+MATCH (c:__Community__)
+WHERE NOT EXISTS {
+    MATCH (c)<-[:IN_COMMUNITY*]-(e:__Entity__)
+}
+WITH c
+DETACH DELETE c
+RETURN count(c) AS deleted_empty_communities
+"""
+
+
+
+DOCUMENT_RELATIONSHIP_PROMPT = """
+Analyze the relationship between the following two document summaries.
+Your task is to classify the relationship into one of the following categories:
+- SUPPORTS: Document 2 provides evidence for, reinforces, or agrees with the claims in Document 1.
+- CONTRADICTS: Document 2 presents evidence or claims that disagree with or oppose Document 1.
+- BUILDS_UPON: Document 2 expands on the ideas, provides more detail, or takes the concepts from Document 1 a step further.
+- NEUTRAL: The documents are on a similar topic but do not directly support or contradict each other.
+- NOT_RELATED: The documents are about different topics.
+
+Document 1:
+---
+{document_1_summary}
+---
+
+Document 2:
+---
+{document_2_summary}
+---
+
+Based on your analysis, what is the single most appropriate relationship type?
+Return only the label (e.g., "SUPPORTS" or "CONTRADICTS").
 """

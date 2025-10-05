@@ -186,7 +186,7 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
             )  # Removed timeout, not a class attribute
             return [r.data() for r in result]
 
-    async def achat(self, messages, model="gpt-4o", config={}):
+    async def achat(self, messages, model='gpt-5-mini', config={}):
         response = await self._openai_client.chat.completions.create(
             model=model,
             messages=messages,

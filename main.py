@@ -47,10 +47,52 @@ allowed_entities = [
     "Environment",
     "Discipline"
 ]
+
+allowed_relationships = [
+    # General / Hierarchical
+    "IS_A",
+    "PART_OF",
+    "HAS_A",
+    "RELATED_TO",
+    "DERIVED_FROM",
+    
+    # Professional / Organizational
+    "WORKS_FOR",
+    "FOUNDED_BY",
+    "CEO_OF",
+    "MANAGES",
+    "PARTNERED_WITH",
+    "ACQUIRED",
+    "INVESTED_IN",
+    "COMPETES_WITH",
+    "CUSTOMER_OF",
+
+    # Locational
+    "LOCATED_IN",
+    "BASED_IN",
+    "BORN_IN",
+    
+    # Technical / Conceptual
+    "USES",
+    "DEVELOPS",
+    "SUPPORTS",
+    "DEPENDS_ON",
+    "INTEGRATES_WITH",
+    
+    # Causal / Influence
+    "CAUSES",
+    "INFLUENCES",
+    "PREcedes",
+    
+    # Personal
+    "SPOUSE_OF",
+    "CHILD_OF",
+    "KNOWS",
+]
 text_chunker = SectionSplitter()
 async def main():
     # Extract entities and relationships
-    await ms_graph.load_data(get_sample(),allowed_entities=allowed_entities)
+    await ms_graph.load_data(get_sample(),allowed_entities=allowed_entities,allowed_relationships=allowed_relationships)
 
     # Close the connection (sync)
     ms_graph.close()
