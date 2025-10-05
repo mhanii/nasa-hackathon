@@ -14,55 +14,125 @@ except ImportError:
 
 # Allowed entity types for extraction
 ALLOWED_ENTITIES = [
-    "organization",
+    # General
     "person",
+    "organization",
+    "institution",
+    "research_group",
+    "project",
+    "publication",
+    "experiment",
+    "method",
+    "theory",
+    "model",
+    "dataset",
+    
+    # Biological
+    "species",
+    "cell",
+    "tissue",
+    "organ",
+    "pathway",
+    "molecule",
+    "gene",
+    "protein",
+    "enzyme",
+    "metabolite",
+    "hormone",
+    "receptor",
+    "virus",
+    "bacterium",
     "drug",
     "disease",
     "symptom",
-    "gene",
-    "protein",
     "medical_condition",
+    "mutation",
+    "sequence",
+    "compound",
+    "biomarker",
+    "trait",
+    "environmental_factor",
 ]
+
 ALLOWED_RELATIONSHIPS = [
-    # General / Hierarchical
+    # Structural / Hierarchical
     "IS_A",
     "PART_OF",
     "HAS_A",
     "RELATED_TO",
     "DERIVED_FROM",
+    "SUBTYPE_OF",
+    "INSTANCE_OF",
+
+    # Scientific reasoning / conceptual
+    "EXTENDS",
+    "BUILDS_UPON",
+    "EXAMPLE_OF",
+    "SUPPORTED_BY",
+    "CHALLENGES",
+    "TESTS",
+    "PREDICTS",
+    "ASSUMES",
+    "VALIDATES",
+    "CONFIRMS",
+    "REPLICATES",
+    "REFUTES",
+    "CITED_BY",
+
+    # Research activity
+    "STUDIED_BY",
+    "STUDIES",
+    "DISCOVERED_BY",
+    "PROPOSED_BY",
+    "AUTHORED_BY",
+    "CONDUCTED_BY",
+    "PUBLISHED_IN",
+    "COLLABORATES_WITH",
     
-    # Professional / Organizational
+    # Biological / Functional
+    "ENCODES",
+    "EXPRESSES",
+    "INHIBITS",
+    "ACTIVATES",
+    "BINDS_TO",
+    "INTERACTS_WITH",
+    "REGULATES",
+    "CATALYZES",
+    "TRANSPORTS",
+    "ASSOCIATED_WITH",
+    "INVOLVED_IN",
+    "RESPONDS_TO",
+    "LOCALIZED_IN",
+    
+    # Causal / Influence
+    "CAUSES",
+    "RESULTS_IN",
+    "AFFECTS",
+    "INDUCES",
+    "SUPPRESSES",
+    "ENHANCES",
+    "TRIGGERS",
+    
+    # Technical / Application
+    "USES",
+    "DEVELOPS",
+    "APPLIES_TO",
+    "BASED_ON",
+    "INTEGRATES_WITH",
+    "MEASURES",
+    
+    # Organizational / Personal
     "WORKS_FOR",
     "FOUNDED_BY",
-    "CEO_OF",
     "MANAGES",
     "PARTNERED_WITH",
-    "ACQUIRED",
     "INVESTED_IN",
-    "COMPETES_WITH",
-    "CUSTOMER_OF",
-
+    "AFFILIATED_WITH",
+    
     # Locational
     "LOCATED_IN",
     "BASED_IN",
     "BORN_IN",
-    
-    # Technical / Conceptual
-    "USES",
-    "DEVELOPS",
-    "SUPPORTS",
-    "DEPENDS_ON",
-    "INTEGRATES_WITH",
-    
-    # Causal / Influence
-    "CAUSES",
-    "INFLUENCES",
-    "PREcedes",
-    
-    # Personal
-    "SPOUSE_OF",
-    "CHILD_OF",
-    "KNOWS",
 ]
 
 async def load_documents_to_graph(
@@ -227,7 +297,7 @@ if __name__ == "__main__":
     # asyncio.run(process_all_documents("yourfile.csv"))
     
     # Example 2: Process documents 0-10
-    asyncio.run(process_document_range("SB_publication_PMC.csv", start=0, end=10))
+    asyncio.run(process_document_range("SB_publication_PMC.csv", start=11, end=30))
     
     # Example 3: Process a single document at index 5
     # asyncio.run(process_single_document("yourfile.csv", index=5))

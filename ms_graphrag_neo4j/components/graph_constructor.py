@@ -283,6 +283,7 @@ class GraphConstructor:
         
         # This is our predefined set of relationship types
         allowed_rel_types = ["SUPPORTS", "CONTRADICTS", "BUILDS_UPON", "NEUTRAL", "NOT_RELATED"]
+        seen_pairs = set()
 
         async def process_document(document):
             # Ensure the document has a summary to work with
@@ -296,6 +297,17 @@ class GraphConstructor:
             relationships = []
             for similar_doc in similar_documents:
                 # Skip if the document is being compared with itself or score is below threshold
+
+                for similar_doc in similar_documents:
+                    if similar_doc["title"] == document["title"] or similar_doc["score"] < similarity_threshold:
+                        continue
+
+                    # Make the pair direction-independent
+                    pair = tuple(sorted([document["title"], similar_doc["title"]]))
+                    if pair in seen_pairs:
+                        continue
+                    seen_pairs.add(pair)
+
                 if similar_doc["title"] == document["title"] or similar_doc["score"] < similarity_threshold:
                     continue
 

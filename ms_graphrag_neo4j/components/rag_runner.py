@@ -139,12 +139,27 @@ class RAGRunner:
 
         # 5. Provide context to LLM and stream the answer
         print("Step 5: Synthesizing context and streaming final answer with Gemini...")
-        final_prompt = (
-            f"{context_str}\n\nBased *only* on the context provided above, "
-            f"please answer the following question. Do not use any prior knowledge. "
-            f"If the context does not contain the answer, say so.\n\n"
-            f"Question: {prompt}"
-        )
+        final_prompt = f"""
+        You are a scientific assistant specialized in interpreting academic and biological material.
+
+        The following CONTEXT has been automatically retrieved from a graph of scientific documents and related entities.
+        You did NOT write this material — it was provided by the system as background knowledge.
+        Your task is to respond to the USER's question based only on this context.
+
+        If you refer to a document, include a citation in the form:
+        [cite]<document title>[/cite]
+        at the end of each answer.
+
+        Be factual, concise, and do not use external or prior knowledge.
+        If the context does not contain enough information to answer, explicitly say so.
+
+        ---
+        {context_str}
+        ---
+
+        USER QUESTION:
+        {prompt}
+        """
 
         async for chunk in self.astream_chat([{"role": "user", "content": final_prompt}]):
             yield chunk
