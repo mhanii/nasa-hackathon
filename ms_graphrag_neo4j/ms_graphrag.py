@@ -420,34 +420,25 @@ class MsGraphRAG(GraphConstructor, Searcher, RAGRunner):
             print("\n[ANALYSIS] Top 5 most contradictory documents:")
             for record in contradictory_docs:
                 print(f"  - '{record['title']}' (contradicts {record['contradiction_score']} other docs)")
-    def close(self) -> None:
-        """
-        Explicitly close the Neo4j driver connection.
-s
-        Delegates connection management to the Neo4j driver.
-        """
-        if hasattr(self, "_driver"):
-            self._driver.close()
-            # Remove the driver attribute to indicate closure
-            delattr(self, "_driver")
 
-    def __enter__(self) -> "MsGraphRAG":
-        """
-        Enter the runtime context for the Neo4j graph connection.
-        """
-        return self
 
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
-    ) -> None:
-        self.close()
+    def get_all_document_metadata(self) -> List[Dict[str, Any]]:
+        """
+        Fetches metadata for all Document nodes, including authors from relationships,
+        and uses the generated summary instead of the original abstract.
+        
+        It attempts to collect all necessary properties (id, title, year, summary, topics, organisms, missions).
+        """
+        # The query assumes that:
+        # 1. The document's ID is stored as a property, e.g., d.id.
+        # 2. The generated document summary is stored in d.summary.
+        # 3. List properties (topics, organisms, missions) are stored as array properties on the node.
+        
+        query = """
+            MATCH (d:Document)<-[:FROM_DOCUMENT]-(c:__Chunk__)
+            WHERE c.title = 'Abstract'
+            RETURN d.title AS Title, d.authors AS Authors, c.text AS Abstract
+        """
+        
+        return self.query(query)
 
-    def __del__(self) -> None:
-        try:
-            self.close()
-        except Exception:
-            # Suppress any exceptions during garbage collection
-            pass

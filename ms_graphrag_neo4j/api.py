@@ -3,6 +3,7 @@ import asyncio
 import logging
 from fastapi import FastAPI, Depends, Request
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware # 1. IMPORT THIS
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from .ms_graphrag import MsGraphRAG
@@ -29,9 +30,27 @@ class SearchRequest(BaseModel):
 # --- FastAPI App Instance ---
 app = FastAPI(title="GraphRAG API", description="Neo4j Graph + RAG integration")
 
+# 2. ADD THE CORS MIDDLEWARE HERE
+origins = [
+    "http://127.0.0.1:8080",
+    "http://localhost:8080",
+    # Add any other origins you might use for development or production
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins, # Allows specific origins
+    allow_credentials=True,
+    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"], # Allows all headers
+)
+
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 GraphRAG API starting up")
+
+# ... (the rest of your backend code remains exactly the same) ...
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -110,6 +129,16 @@ async def get_authors_count(ms_graph: MsGraphRAG = Depends(get_ms_graph_rag)):
     logger.info("GET /authors_count")
     result = ms_graph.query("MATCH (a:Author) RETURN count(a) AS count")
     return result[0] if result else {"count": 0}
+
+
+@app.get("/api/documents")
+async def get_all_documents(ms_graph: MsGraphRAG = Depends(get_ms_graph_rag)):
+    """
+    Fetches essential metadata for all documents via the MsGraphRAG service.
+    """
+    # Simply delegate the work to the service layer
+    results = ms_graph.get_all_document_metadata()
+    return results
 
 @app.get("/document_by_id/{doc_id}")
 async def get_document_by_id(doc_id: int, ms_graph: MsGraphRAG = Depends(get_ms_graph_rag)):
