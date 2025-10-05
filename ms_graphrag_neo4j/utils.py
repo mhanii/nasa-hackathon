@@ -21,7 +21,7 @@ def parse_extraction_output(output_str, record_delimiter=None, tuple_delimiter=N
 
     or
 
-        ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_strength>)
+        ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_type>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_strength>)
 
     Records are separated by a record delimiter. The output string may end with a completion marker
     (for example, "{completion_delimiter}") which will be removed.
@@ -36,8 +36,8 @@ def parse_extraction_output(output_str, record_delimiter=None, tuple_delimiter=N
         tuple_delimiter (str, optional): The delimiter that separates fields within a record.
 
     Returns:
-        List[dict]: A list of dictionaries where each dictionary represents an entity or relationship.
-
+        Tuple[List[dict], List[dict]]: A tuple of (nodes, relationships) where:
+        
         For an "entity", the dictionary has the keys:
             - record_type (always "entity")
             - entity_name
@@ -48,6 +48,7 @@ def parse_extraction_output(output_str, record_delimiter=None, tuple_delimiter=N
             - record_type (always "relationship")
             - source_entity
             - target_entity
+            - relationship_type (NEW: semantic type of the relationship)
             - relationship_description
             - relationship_strength (as an int or float)
     """
@@ -109,27 +110,50 @@ def parse_extraction_output(output_str, record_delimiter=None, tuple_delimiter=N
             }
             parsed_records.append(record)
         elif rec_type == "relationship":
-            if len(tokens) != 5:
+            # Updated to handle the new format with relationship_type
+            if len(tokens) == 6:
+                # NEW FORMAT: source, target, type, description, strength
+                try:
+                    strength = float(tokens[5])
+                    if strength.is_integer():
+                        strength = int(strength)
+                except ValueError:
+                    strength = tokens[5]
+                
+                record = {
+                    "record_type": "relationship",
+                    "source_entity": tokens[1],
+                    "target_entity": tokens[2],
+                    "relationship_type": tokens[3],  # NEW: Extract relationship type
+                    "relationship_description": tokens[4],
+                    "relationship_strength": strength,
+                }
+                parsed_records.append(record)
+            elif len(tokens) == 5:
+                # OLD FORMAT (backward compatibility): source, target, description, strength
+                try:
+                    strength = float(tokens[4])
+                    if strength.is_integer():
+                        strength = int(strength)
+                except ValueError:
+                    strength = tokens[4]
+                
+                record = {
+                    "record_type": "relationship",
+                    "source_entity": tokens[1],
+                    "target_entity": tokens[2],
+                    "relationship_type": "RELATED_TO",  # Default type for old format
+                    "relationship_description": tokens[3],
+                    "relationship_strength": strength,
+                }
+                parsed_records.append(record)
+            else:
+                # Malformed relationship record
                 continue
-            # Attempt to convert relationship_strength to a number.
-            try:
-                strength = float(tokens[4])
-                # Convert to int if it has no fractional part.
-                if strength.is_integer():
-                    strength = int(strength)
-            except ValueError:
-                strength = tokens[4]
-            record = {
-                "record_type": "relationship",
-                "source_entity": tokens[1],
-                "target_entity": tokens[2],
-                "relationship_description": tokens[3],
-                "relationship_strength": strength,
-            }
-            parsed_records.append(record)
         else:
             # Unknown record type; skip it or handle accordingly.
             continue
+    
     nodes = [el for el in parsed_records if el.get("record_type") == "entity"]
     relationships = [
         el for el in parsed_records if el.get("record_type") == "relationship"
